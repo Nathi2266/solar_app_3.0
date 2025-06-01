@@ -16,7 +16,10 @@ def init_db():
             location TEXT,
             isp TEXT,
             device TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            proxy BOOLEAN,
+            vpn BOOLEAN,
+            tor BOOLEAN
         )''')
 init_db()
 
