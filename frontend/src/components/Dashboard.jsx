@@ -49,7 +49,7 @@ const getConnectionIcon = (type) => {
 
 function Dashboard() {
   const { colorMode, toggleColorMode } = useColorMode();
-  const [log, setLog] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ipInput, setIpInput] = useState('');
   const [logs, setLogs] = useState([]);
@@ -59,13 +59,23 @@ function Dashboard() {
   useEffect(() => {
     // Check if user is logged in
     const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
     if (!token) {
       navigate('/login');
       return;
     }
 
-    trackCurrentIP();
-    fetchLogs();
+    // Parse user data if it exists
+    if (user) {
+      try {
+        setUserData(JSON.parse(user));
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+      }
+    }
+
+    setLoading(false);
   }, [navigate]);
 
   const trackCurrentIP = async () => {
@@ -77,7 +87,7 @@ function Dashboard() {
         }
       });
       const data = await response.json();
-      setLog(data);
+      setUserData(data);
     } catch (error) {
       console.error('Error tracking IP:', error);
       toast({
@@ -112,7 +122,7 @@ function Dashboard() {
         }
       });
       const data = await response.json();
-      setLog(data);
+      setUserData(data);
       toast({
         title: 'Success',
         description: 'IP tracked successfully',
@@ -160,6 +170,14 @@ function Dashboard() {
     navigate('/login');
   };
 
+  if (loading) {
+    return (
+      <Box textAlign="center" py={8}>
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
+
   return (
     <Container maxW="container.xl" py={8}>
       <Box position="absolute" top={4} right={4}>
@@ -177,138 +195,45 @@ function Dashboard() {
 
       <VStack spacing={8} align="stretch">
         <Heading as="h1" size="xl" textAlign="center">
-          IP & Device Tracker
+          Welcome to Dashboard
         </Heading>
 
-        {/* IP Input Section */}
         <Card bg={useColorModeValue('white', 'gray.800')} rounded="xl" shadow="lg">
           <CardBody>
-            <HStack spacing={4}>
-              <Input
-                placeholder="Enter IP address"
-                value={ipInput}
-                onChange={(e) => setIpInput(e.target.value)}
-              />
-              <Button colorScheme="blue" onClick={trackCustomIP}>
-                Track IP
-              </Button>
-            </HStack>
+            <VStack spacing={4} align="stretch">
+              <Heading as="h2" size="md">
+                User Information
+              </Heading>
+              
+              {userData && (
+                <Box>
+                  <Text fontWeight="bold">Username:</Text>
+                  <Text>{userData.username}</Text>
+                  {userData.email && (
+                    <>
+                      <Text fontWeight="bold" mt={2}>Email:</Text>
+                      <Text>{userData.email}</Text>
+                    </>
+                  )}
+                </Box>
+              )}
+            </VStack>
           </CardBody>
         </Card>
 
-        {/* Current Session Card */}
-        {loading ? (
-          <Box textAlign="center" py={8}>
-            <Spinner size="xl" />
-          </Box>
-        ) : log && (
-          <Card bg={useColorModeValue('white', 'gray.800')} rounded="xl" shadow="lg" overflow="hidden">
-            <CardBody>
-              <VStack align="stretch" spacing={4}>
-                <Heading as="h2" size="md" mb={2}>
-                  Tracked IP Details
-                </Heading>
-                
-                {/* Basic Info */}
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold">IP Address</Text>
-                    <Text>{log.ip}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold">Location</Text>
-                    <Text>{log.location}</Text>
-                  </Box>
-                </SimpleGrid>
-
-                {/* Coordinates */}
-                {log.latitude && log.longitude && (
-                  <Box>
-                    <Text fontWeight="bold" display="flex" alignItems="center" gap={2}>
-                      <FiMapPin /> Coordinates
-                    </Text>
-                    <Text>
-                      {log.latitude.toFixed(4)}, {log.longitude.toFixed(4)}
-                    </Text>
-                  </Box>
-                )}
-
-                {/* Network Info */}
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  {log.asn && (
-                    <Box>
-                      <Text fontWeight="bold">ASN</Text>
-                      <Badge colorScheme="blue">{log.asn}</Badge>
-                    </Box>
-                  )}
-                  {log.isp && (
-                    <Box>
-                      <Text fontWeight="bold">ISP</Text>
-                      <Text fontStyle="italic">{log.isp}</Text>
-                    </Box>
-                  )}
-                </SimpleGrid>
-
-                {/* Connection Type */}
-                {log.connection_type && (
-                  <Box>
-                    <Text fontWeight="bold" display="flex" alignItems="center" gap={2}>
-                      {getConnectionIcon(log.connection_type)} Connection Type
-                    </Text>
-                    <Badge colorScheme="purple" textTransform="capitalize">
-                      {log.connection_type}
-                    </Badge>
-                  </Box>
-                )}
-
-                {/* Carrier (if available) */}
-                {log.carrier && (
-                  <Box>
-                    <Text fontWeight="bold">Carrier</Text>
-                    <Text>{log.carrier}</Text>
-                  </Box>
-                )}
-
-                {/* Timestamp */}
-                <Box>
-                  <Text fontWeight="bold">Timestamp</Text>
-                  <Badge colorScheme="blue">{log.timestamp}</Badge>
-                </Box>
-              </VStack>
-            </CardBody>
-          </Card>
-        )}
-
-        {/* Logs Table */}
-        <Card bg={useColorModeValue('white', 'gray.800')} rounded="xl" shadow="lg" overflow="hidden">
+        {/* Add more dashboard content here */}
+        <Card bg={useColorModeValue('white', 'gray.800')} rounded="xl" shadow="lg">
           <CardBody>
-            <Heading as="h2" size="md" mb={4}>
-              Tracking History
-            </Heading>
-            <Box overflowX="auto">
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>IP</Th>
-                    <Th>Location</Th>
-                    <Th>ISP</Th>
-                    <Th>Device</Th>
-                    <Th>Timestamp</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {logs.map((log, index) => (
-                    <Tr key={index}>
-                      <Td>{log.ip}</Td>
-                      <Td>{log.location}</Td>
-                      <Td>{log.isp}</Td>
-                      <Td>{log.device}</Td>
-                      <Td>{log.timestamp}</Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
+            <VStack spacing={4} align="stretch">
+              <Heading as="h2" size="md">
+                Quick Actions
+              </Heading>
+              <HStack spacing={4}>
+                <Button colorScheme="blue">Action 1</Button>
+                <Button colorScheme="green">Action 2</Button>
+                <Button colorScheme="purple">Action 3</Button>
+              </HStack>
+            </VStack>
           </CardBody>
         </Card>
       </VStack>
