@@ -1,6 +1,10 @@
+from flask import Blueprint, request, jsonify
 import sqlite3
 import datetime
 import requests
+
+# Create a Blueprint instead of a Flask app
+tracker_bp = Blueprint('tracker', __name__)
 
 DB_NAME = 'db.sqlite3'
 
@@ -28,24 +32,68 @@ def get_ip_details(ip):
         
         return {
             'ip': data.get('ip'),
+            'latitude': data.get('latitude'),
+            'longitude': data.get('longitude'),
+            'asn': data.get('asn'),
             'org': data.get('org'),
-            'country_name': data.get('country_name'),
+            'carrier': data.get('carrier'),
             'connection_type': data.get('connection', {}).get('type'),
-            'proxy': data.get('proxy', False),
-            'vpn': data.get('vpn', False),
-            'tor': data.get('tor', False)
+            'country_name': data.get('country_name'),
+            'city': data.get('city'),
+            'region': data.get('region')
         }
     except Exception as e:
         print(f"Error fetching IP details: {e}")
         return {
             'ip': ip,
-            'org': 'Unknown',
+            'latitude': None,
+            'longitude': None,
+            'asn': None,
+            'org': None,
+            'carrier': None,
+            'connection_type': None,
             'country_name': 'Unknown',
-            'connection_type': 'Unknown',
-            'proxy': False,
-            'vpn': False,
-            'tor': False
+            'city': 'Unknown',
+            'region': 'Unknown'
         }
+
+@tracker_bp.route('/track', methods=['GET'])
+def track_current_ip():
+    try:
+        ip = request.remote_addr
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        return track_ip(ip, user_agent)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@tracker_bp.route('/track/<ip>', methods=['GET'])
+def track_custom_ip(ip):
+    try:
+        user_agent = request.headers.get('User-Agent', 'Unknown')
+        return track_ip(ip, user_agent)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@tracker_bp.route('/logs', methods=['GET'])
+def get_logs():
+    try:
+        with sqlite3.connect('db.sqlite3') as conn:
+            cursor = conn.execute('SELECT * FROM logs ORDER BY timestamp DESC')
+            logs = cursor.fetchall()
+            return jsonify([{
+                'ip': log[1],
+                'location': log[2],
+                'isp': log[3],
+                'device': log[4],
+                'timestamp': log[5],
+                'latitude': log[6],
+                'longitude': log[7],
+                'asn': log[8],
+                'carrier': log[9],
+                'connection_type': log[10]
+            } for log in logs])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def track_ip(ip, user_agent):
     try:
@@ -58,34 +106,38 @@ def track_ip(ip, user_agent):
         # Store in database
         with sqlite3.connect(DB_NAME) as conn:
             conn.execute("""
-                INSERT INTO logs (ip, location, isp, device, timestamp, proxy, vpn, tor)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO logs (
+                    ip, location, isp, device, timestamp, 
+                    latitude, longitude, asn, carrier, connection_type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 ip_details['ip'],
-                ip_details['country_name'],
+                f"{ip_details['city']}, {ip_details['country_name']}",
                 ip_details['org'],
                 user_agent,
                 timestamp,
-                ip_details['proxy'],
-                ip_details['vpn'],
-                ip_details['tor']
+                ip_details['latitude'],
+                ip_details['longitude'],
+                ip_details['asn'],
+                ip_details['carrier'],
+                ip_details['connection_type']
             ))
         
         # Return tracking data
-        return {
+        return jsonify({
             'ip': ip_details['ip'],
-            'location': ip_details['country_name'],
+            'location': f"{ip_details['city']}, {ip_details['country_name']}",
             'isp': ip_details['org'],
             'device': user_agent,
             'timestamp': timestamp,
-            'connection_type': ip_details['connection_type'],
-            'proxy': ip_details['proxy'],
-            'vpn': ip_details['vpn'],
-            'tor': ip_details['tor']
-        }
+            'latitude': ip_details['latitude'],
+            'longitude': ip_details['longitude'],
+            'asn': ip_details['asn'],
+            'carrier': ip_details['carrier'],
+            'connection_type': ip_details['connection_type']
+        })
     except Exception as e:
-        print(f"Error tracking IP: {e}")
-        return None
+        return jsonify({'error': str(e)}), 500
 
 def fetch_logs():
     with sqlite3.connect(DB_NAME) as conn:
