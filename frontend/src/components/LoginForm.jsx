@@ -12,6 +12,7 @@ import {
 } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 function LoginForm() {
   const [username, setUsername] = useState('');
@@ -25,7 +26,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,7 +37,6 @@ function LoginForm() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
@@ -50,7 +50,7 @@ function LoginForm() {
       } else {
         toast({
           title: 'Error',
-          description: data.error || 'Failed to login',
+          description: data.message || 'Failed to login',
           status: 'error',
           duration: 3000,
         });
@@ -97,7 +97,6 @@ function LoginForm() {
               colorScheme="blue"
               width="full"
               isLoading={loading}
-              loadingText="Logging in..."
             >
               Login
             </Button>
